@@ -36,9 +36,14 @@ public class Constants implements Serializable {
     public static int dividePartition;
 
     /**
-     * kafka的topic的并行度
+     * source的并行度
      */
     public static int inputPartition;
+
+    /**
+     * 统计密度的算子的并行度
+     */
+    public static int densityPartition;
 
     /**
      * subTask: globalSubTask
@@ -83,11 +88,11 @@ public class Constants implements Serializable {
             windowSize = Integer.parseInt(pro.getProperty("windowSize"));
             logicWindow = Integer.parseInt(pro.getProperty("logicWindow"));
             gridDensity = Integer.parseInt(pro.getProperty("gridDensity"));
+            balanceFre = logicWindow/Integer.parseInt(pro.getProperty("balanceFactor"));
+            densityPartition = Integer.parseInt(pro.getProperty("densityPartition"));
         }catch (Exception e){
             e.printStackTrace();
         }
-        balanceFre = logicWindow/4;
-
         int maxParallelism = 128;
 //        int maxParallelism = 256;
         Set<Integer> usedSubtask = new HashSet<>();

@@ -1,5 +1,7 @@
 package com.ada.geometry;
 
+import com.ada.common.Constants;
+import com.ada.model.DensityToGlobal.DensityToGlobalElem;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,7 +13,7 @@ import java.util.Objects;
 
 @Getter
 @Setter
-public class TrackPoint extends Point implements Cloneable, Comparable<TrackPoint>, Serializable {
+public class TrackPoint extends Point implements Cloneable, Comparable<TrackPoint>, Serializable, DensityToGlobalElem {
 	public long timestamp;
 	public int TID;
 
@@ -32,7 +34,12 @@ public class TrackPoint extends Point implements Cloneable, Comparable<TrackPoin
 		data[1] = Double.parseDouble(dev[3]);
 	}
 
-    public boolean isEmpty(){
+	@Override
+	public int getD2GKey() {
+		return TID% Constants.globalPartition;
+	}
+
+	public boolean isEmpty(){
 		return data == null;
 	}
 

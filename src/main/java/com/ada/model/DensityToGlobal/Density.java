@@ -17,4 +17,9 @@ public class Density implements DensityToGlobalElem, Serializable {
         this.grids = grids;
         this.key = key;
     }
+
+    @Override
+    public int getD2GKey() {
+        return key;
+    }
 }

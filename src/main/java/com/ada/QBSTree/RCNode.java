@@ -1,13 +1,12 @@
 package com.ada.QBSTree;
 
 import com.ada.geometry.Rectangle;
+import com.ada.geometry.track.TrackKeyTID;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Getter
 @Setter
@@ -23,14 +22,16 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 
 	public Rectangle region;
 
-	public List<Integer> preDepths;
+	public List<Integer> preDepths = new ArrayList<>();
 
 	public int elemNum;
 
 	public RCtree<T> tree;
 
+	public RCNode() {}
+
 	public RCNode(int depth, RCDirNode<T> parent, int position, Rectangle centerRegion, Rectangle region, List<Integer> preDepths,
-                  int elemNum, RCtree<T> tree) {
+				  int elemNum, RCtree<T> tree) {
 		super();
 		this.depth = depth;
 		this.parent = parent;
@@ -52,12 +53,31 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 
 
 	/**
+	 * 获取指定的矩形区域内包含的轨迹集合
+	 * @param region 指定的矩形区域
+	 * @param allTIDs 获取指定区域内的轨迹ID集合，包括与边界相交的轨迹ID
+	 * @param intersections 获取指定区域边界相交轨迹ID集合
+	 */
+	abstract void getRegionTIDs(Rectangle region, Set<Integer> allTIDs, Set<Integer> intersections);
+
+	/**
+	 * 获取指定的矩形区域内包含的轨迹集合
+	 * @param region 指定的矩形区域
+	 * @param allTIDs 获取指定区域内的轨迹ID集合，包括与边界相交的轨迹ID
+	 */
+	abstract void getRegionTIDs(Rectangle region, Set<Integer> allTIDs);
+
+	public abstract void getAllTIDs(Set<Integer> TIDs);
+
+	abstract void trackInternal(Rectangle region, List<Integer> TIDs);
+
+	/**
 	 * 本节点深度发生变化时，导致失衡的最小子树。
 	 * @param cache true使用延迟更新，false不使用延迟更新
 	 * @param subNode 当cache为false时该参数有效，表示非叶节点的第subNode个子节点的深度发生变化。
 	 * @return	没有失衡返回null，否则返回失衡的最小子树。
 	 */
-	RCDirNode<T> getUnbalancedNode(boolean cache, int subNode){
+	RCDirNode<T> getUnbalancedNode(boolean cache,int subNode){
 		if (this instanceof RCDataNode){
 			if(parent == null)
 				return null;
@@ -112,7 +132,7 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 	 * @param subNode 当cache为false且本节点是叶节点时该参数有效，表示本叶点在父节点的第subNode个索引项。
 	 * @return 返回需要重新分配元素的最小子树
 	 */
-	RCDirNode<T> getMinReassignNode(boolean cache, int subNode) {
+	RCDirNode<T> getMinReassignNode(boolean cache,int subNode) {
 		RCDirNode<T> trcDirNode;
 		if (this instanceof  RCDataNode) {
 			trcDirNode = getUnbalancedNode(cache,subNode);
@@ -147,7 +167,7 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 				return this;
 			}else {
                 preDepths = new ArrayList<>(Collections.singletonList(0));
-                RCDirNode<T> UBNode;
+                RCDirNode<T>  UBNode;
                 UBNode = getMinReassignNode(true,0);
                 if(UBNode == null || UBNode == this)
                     return this;
@@ -182,7 +202,7 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 	 */
 	void updateRegion(Rectangle rectangle, int operatorType) {
 		Rectangle nRegion = region;
-		if (this instanceof RCDirNode){
+		if (this instanceof  RCDirNode){
 			region = calculateRegion();
 			if( !Rectangle.rectangleEqual(nRegion, region) && parent != null)
 				parent.updateRegion(nRegion, operatorType );
@@ -222,7 +242,7 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 			if(elemNum <= tree.upBound && elemNum >= tree.lowBound )
 				return this;
 			else if( elemNum > tree.upBound ) { //一分多
-				RCDirNode<T> res;
+				RCDirNode<T>  res;
 				RCDirNode<T> tmp = parent;
 				parent = null;
 				res = node.recursionSplit();
@@ -238,9 +258,9 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 				throw new IllegalArgumentException("不应该有元素数小于下届的节点重新调整节点");
 			}
 		}else {
-			RCDirNode<T> node = (RCDirNode<T>) this;
+			RCDirNode<T>  node = (RCDirNode <T>) this;
 			if(elemNum <= tree.upBound && elemNum >= tree.lowBound) { //多合一
-				List<T> elms = new ArrayList<>();
+				List<T> elms = new ArrayList<>(node.elemNum);
 				node.getAllElement(elms);
 				RCDataNode<T> dataNode = new RCDataNode<>(0,parent,position,this.centerRegion, this.region, new ArrayList<>()
 						,this.elemNum,this.tree, elms);
@@ -253,7 +273,7 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 					tree.root = dataNode;
 				result = dataNode;
 			}else if( elemNum > tree.upBound ) { //多分多
-				RCDirNode<T> res = node.redistribution();
+				RCDirNode<T>  res = node.redistribution();
 				res.depthPreDepthConvert(true);
 				if(res.parent == null)
 					tree.root = res;
@@ -295,14 +315,12 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 	}
 
 
-	boolean check() {
+	boolean check(Map<Integer, TrackKeyTID> trackMap) {
 		if(this.parent != null) {
-			if (parent.child[position] != this)
-				return false;
+			return parent.child[position] == this;
 		}
 		return true;
 	}
-
 
 	/**
 	 * 查找指定矩形rectangle包含的叶节点集合
@@ -355,6 +373,17 @@ public abstract class RCNode<T extends ElemRoot> implements Serializable {
 				return 1;
 		}
 		return 0;
+	}
+
+	/**
+	 * 判断本节点是否在索引tree中
+	 */
+	public boolean isInTree(){
+		if (parent == null)
+			return tree.root == this;
+		if (parent.child[position] != this)
+			return false;
+		return parent.isInTree();
 	}
 
 	/**

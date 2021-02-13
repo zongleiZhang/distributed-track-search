@@ -76,6 +76,19 @@ public class GDirNode extends GNode implements Serializable {
         return elemNum;
     }
 
+    public GNode getInternalNode(Rectangle rectangle){
+        for (GNode gNode : child) {
+            if (gNode.region.isInternal(rectangle))
+                return gNode.getInternalNode(rectangle);
+        }
+        return this;
+    }
+
+    public void getAllDirNode(List<GDirNode> dirNodes){
+        dirNodes.add(this);
+        for (GNode gNode : child)
+            gNode.getAllDirNode(dirNodes);
+    }
 
     @Override
     public boolean equals(Object o) {

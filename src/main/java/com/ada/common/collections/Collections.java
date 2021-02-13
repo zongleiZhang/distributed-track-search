@@ -1,13 +1,11 @@
 package com.ada.common.collections;
 
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class Collections {
 
+    @SuppressWarnings("unchecked")
     public static <FROM, TO>
         Collection<TO> changeCollectionElem(Collection<FROM> collection,
                                             ChangeAction<FROM, TO> changeAction){
@@ -22,6 +20,33 @@ public class Collections {
         return out;
     }
 
+    @SuppressWarnings("unchecked")
+    public static <T> Collection<T> removeAndGatherElms(Collection<T> collection, Judge<T> judge) throws Exception {
+        Collection<T> out = collection.getClass().newInstance();
+        collection.removeIf(t -> {
+            if (judge.action(t)){
+                out.add(t);
+                return true;
+            }else {
+                return false;
+            }
+        });
+        return out;
+    }
+
+    public static <T> T removeAndGatherElem(Collection<T> collection, Judge<T> judge){
+        T res = null;
+        for (Iterator<T> ite = collection.iterator(); ite.hasNext();){
+            T t = ite.next();
+            if (judge.action(t)){
+                res = t;
+                ite.remove();
+                break;
+            }
+        }
+        return res;
+    }
+
     public static <T> boolean collectionsEqual(Collection<T> col1, Collection<T> col2) {
         if (col1 == null && col2 == null)
             return true;
@@ -31,8 +56,8 @@ public class Collections {
             return false;
         Set<T> set1 = new HashSet<>(col1);
         Set<T> set2 = new HashSet<>(col2);
-        set1.removeAll(col2);
-        set2.removeAll(col1);
+        for (T t : col2) set1.remove(t);
+        for (T t : col1) set2.remove(t);
         if (!set1.isEmpty())
             return false;
         return set2.isEmpty();

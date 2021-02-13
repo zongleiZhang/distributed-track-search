@@ -1,12 +1,14 @@
 package com.ada.QBSTree;
 
+import com.ada.common.Constants;
+import com.ada.common.collections.Collections;
 import com.ada.geometry.*;
+import com.ada.geometry.track.TrackHauOne;
+import com.ada.geometry.track.TrackKeyTID;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 @Getter
 @Setter
@@ -14,10 +16,17 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 
 	public List<T> elms;
 
+	public Set<Integer> TIDs;
+
+	public RCDataNode() {}
+
 	public RCDataNode(int depth, RCDirNode<T> parent, int position, Rectangle centerRegion, Rectangle region,
                       List<Integer> preDepths, int elemNum, RCtree<T> tree, List<T> elms) {
 		super(depth, parent, position, centerRegion,region, preDepths, elemNum, tree);
 		this.elms = elms;
+		if (tree.hasTIDs) {
+			TIDs = new HashSet<>(Collections.changeCollectionElem(elms, t -> ((TrackInfo) t).obtainTID()));
+		}
 	}
 
 	@Override
@@ -25,6 +34,8 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 		elemNum++;
 		elms.add(elem);
 		elem.leaf = this;
+		if (tree.hasTIDs)
+			TIDs.add(((TrackInfo)elem).obtainTID());
 		if (elem instanceof RectElem)
 			updateRegion( ((RectElem) elem).rect,1);
 		else
@@ -38,12 +49,56 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 			leaves.add(this);
 	}
 
-	@SuppressWarnings("unchecked")
+	@Override
+	void getRegionTIDs(Rectangle region, Set<Integer> allTIDs, Set<Integer> intersections){
+		List<Segment> segments = (List<Segment>) elms;
+		for (Segment segment : segments) {
+			if (segment.getTID() == 979 && Constants.isEqual(segment.p2.data[0], 6541.8508))
+				System.out.print("");
+			if (region.isIntersection(segment)) {
+				if (region.isInternal(segment.rect))
+					allTIDs.add(segment.getTID());
+				else
+					intersections.add(segment.getTID());
+			}
+		}
+	}
+
+	@Override
+	void getRegionTIDs(Rectangle region, Set<Integer> allTIDs){
+		if (elms.get(0) instanceof RectElem){
+			List<RectElem> rectElems = (List<RectElem>) elms;
+			for (RectElem rectElem : rectElems) {
+				if (region.isInternal(rectElem.rect))
+					allTIDs.add(((TrackInfo)rectElem).obtainTID());
+			}
+		}else {
+			for (T elm : elms) {
+				if (region.isInternal(elm))
+					allTIDs.add(((TrackInfo) elm).obtainTID());
+			}
+		}
+	}
+
+    @Override
+    void trackInternal(Rectangle region, List<Integer> TIDs){
+        List<RectElem> rectElems = (List<RectElem>) elms;
+        for (RectElem elem : rectElems) {
+            if(elem.rect.isInternal(region))
+                TIDs.add(((TrackHauOne) elem).trajectory.TID);
+        }
+    }
+
+	@Override
+	public void getAllTIDs(Set<Integer> TIDs) {
+		TIDs.addAll(this.TIDs);
+	}
+
 	@Override
 	Rectangle calculateRegion(){
 		Rectangle res = null;
 		if (this.elemNum != 0) {
-			if (this.elms.get(0) instanceof RectElem){
+			if (this.elms.get(0) instanceof  RectElem){
 				List<RectElem> list = (List<RectElem>) elms;
 				res = list.get(0).rect.clone();
 				for (int i = 1; i < list.size(); i++)
@@ -71,7 +126,7 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 		if(region != null && rectangle.isIntersection(region))
 			leaves.add(this);
 	}
-	@SuppressWarnings("unchecked")
+
 	@Override
 	<M extends RectElem> void rectQuery(Rectangle rectangle, List<M> res, boolean isInternal){
 		List<M> list = (List<M>) elms;
@@ -123,6 +178,20 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 		}
 		if(!elms.remove(elem))
 			return false;
+		if (tree.hasTIDs){
+			boolean flag = true;
+			int tid = ((TrackInfo) elem).obtainTID();
+			for (T elm : elms) {
+				TrackInfo e = (TrackInfo) elm;
+				if (e.obtainTID() == tid) {
+					flag = false;
+					break;
+				}
+			}
+			if (flag)
+				TIDs.remove(tid);
+		}
+
 		if (elem instanceof RectElem)
 			updateRegion(((RectElem) elem).rect,2);
 		else
@@ -138,11 +207,11 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 				newNode = UBNode.redistribution();
 			}else{  //父节点可以合并
 				if(parent.isRoot()) { //根节点合并成一个叶节点
-					List<T> elms = new ArrayList<>();
+					List<T> elms = new ArrayList<>(parent.elemNum);
 					parent.getAllElement(elms);
                     RCDataNode<T> newRoot = new RCDataNode<>(0, null, -1, parent.centerRegion, parent.region,
                             new ArrayList<>(), parent.elemNum, tree, elms);
-                    tree.setRoot(newRoot);
+                    tree.root = newRoot;
                     newRoot.updateElemLeaf();
 					return true;
 				}
@@ -150,7 +219,7 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 				parent.preDepths.add(0);
 				UBNode = parent.getMinReassignNode(false, position);
 				if(UBNode == parent) { //合并父节点就能达到平衡
-					List<T> sags = new ArrayList<>();
+					List<T> sags = new ArrayList<>(UBNode.elemNum);
 					UBNode.getAllElement(sags);
 					RCDataNode<T> dataNode = new RCDataNode<>(0, UBNode.parent, UBNode.position,
 							UBNode.centerRegion, UBNode.region, new ArrayList<>(), UBNode.elemNum, UBNode.tree, sags);
@@ -162,10 +231,11 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 				}
 			}
 			if(newNode != null) {
-				if (newNode.parent == null)
-					tree.setRoot(newNode);
-				else
+				if (newNode.parent == null) {
+					tree.root = newNode;
+				}else {
 					newNode.parent.updateUpperLayerDepth();
+				}
 			}
 		}
 		return true;
@@ -190,8 +260,6 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 		return res;
 	}
 
-
-	@SuppressWarnings({"unchecked", "rawtypes"})
 	private RCDirNode<T> split() {
 		//本层节点赋值2
 		RCDirNode<T> node = new RCDirNode<>(1, parent, position, centerRegion, region, new ArrayList<>(),
@@ -323,8 +391,28 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 	}
 
 	@Override
-	boolean check(){
-		super.check();
+	boolean check(Map<Integer, TrackKeyTID> trackMap){
+		if (!super.check(trackMap))
+			return false;
+		if (!elms.isEmpty() && elms.get(0) instanceof TrackKeyTID){
+			for (T elem : elms){
+				TrackKeyTID track = (TrackKeyTID) elem;
+				if (track.topKP.isEmpty())
+					return false;
+			}
+		}
+
+		if (!elms.isEmpty() && elms.get(0) instanceof Segment){
+			for (T elem : elms){
+				Segment segment = (Segment) elem;
+				TrackKeyTID track = trackMap.get(segment.obtainTID());
+				if (!track.trajectory.elms.contains(segment))
+					return false;
+			}
+		}
+
+
+
 		if (!elms.isEmpty() && elms.get(0) instanceof RectElem){
 			for (T elem : elms){
 				RectElem rectElem = (RectElem) elem;
@@ -333,6 +421,12 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 				if (!rectElem.rect.getCenter().equals(rectElem))
 					return false;
 			}
+		}
+
+		if (tree.hasTIDs){
+			Set<Integer> minus = new HashSet<>(Collections.changeCollectionElem(elms, t -> ((TrackInfo) t).obtainTID()));
+			if (!Collections.collectionsEqual(minus, TIDs))
+				return false;
 		}
 
 		for (T elem : elms) {

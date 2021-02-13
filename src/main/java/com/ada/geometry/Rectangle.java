@@ -1,12 +1,14 @@
 package com.ada.geometry;
 
 import com.ada.common.Constants;
+import com.ada.model.globalToLocal.G2LValue;
 
 import java.awt.geom.Line2D;
 import java.io.Serializable;
+import java.util.List;
 import java.util.Objects;
 
-public class Rectangle implements Cloneable, Serializable {
+public class Rectangle implements Cloneable, Serializable, G2LValue {
 	public Point low; // 左下角的点
 	public Point high; // 右上角的点
 
@@ -129,6 +131,23 @@ public class Rectangle implements Cloneable, Serializable {
 		for(int i = 0; i< length.length; i++) {
 			low.data[i] = low.data[i] - length[i] ;
 			high.data[i] = high.data[i] + length[i] ;
+		}
+		return this;
+	}
+
+	/**
+	 * 将矩形长和宽增加times倍
+	 */
+	public Rectangle shrinkMultiple(double times) {
+		if (times >= 1)
+			throw new IllegalArgumentException();
+		double[] length = new double[low.data.length];
+		for(int i = 0; i< length.length; i++) {
+			length[i] = (int) ((high.data[i] - low.data[i]) * times);
+		}
+		for(int i = 0; i< length.length; i++) {
+			low.data[i] = low.data[i] + length[i] ;
+			high.data[i] = high.data[i] - length[i] ;
 		}
 		return this;
 	}
@@ -349,6 +368,19 @@ public class Rectangle implements Cloneable, Serializable {
 	}
 
 	/**
+	 * 判断一个点是否在矩形内部,包括边
+	 */
+	public <T extends Point> boolean isInternal(List<T> points) {
+		boolean result = true;
+		for (Point point : points) {
+			if (!isInternal(point)){
+				return false;
+			}
+		}
+		return result;
+	}
+
+	/**
 	 * 判断一个点是否的矩形的边上
 	 */
 	protected boolean isAtBoundary(Point point){
@@ -383,7 +415,7 @@ public class Rectangle implements Cloneable, Serializable {
 	}
 
 	/**
-	 *
+	 * 返回包含在此矩形和指定矩形rectangle内的最大矩形
 	 */
     public Rectangle createIntersection(Rectangle rectangle) {
 		if (!isIntersection(rectangle))
@@ -400,15 +432,15 @@ public class Rectangle implements Cloneable, Serializable {
 	 */
 	public Rectangle extendToEnoughBig() {
 		Rectangle newRect = this.clone();
-		double tmp = (Constants.globalRegion.high.data[0] - Constants.globalRegion.low.data[0])*1.5;
 		if (Constants.isEqual(low.data[0],Constants.globalRegion.low.data[0]))
-			newRect.low.data[0] -= tmp;
+			newRect.low.data[0] -= Constants.extendToEnoughBig;
 		if (Constants.isEqual(low.data[1],Constants.globalRegion.low.data[1]))
-			newRect.low.data[1] -= tmp;
+			newRect.low.data[1] -= Constants.extendToEnoughBig;
 		if (Constants.isEqual(high.data[0],Constants.globalRegion.high.data[0]))
-			newRect.high.data[0] += tmp;
+			newRect.high.data[0] += Constants.extendToEnoughBig;
 		if (Constants.isEqual(high.data[1],Constants.globalRegion.high.data[1]))
-			newRect.high.data[1] += tmp;
+			newRect.high.data[1] += Constants.extendToEnoughBig;
 		return newRect;
 	}
+
 }

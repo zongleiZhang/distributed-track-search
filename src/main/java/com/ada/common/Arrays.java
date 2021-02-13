@@ -7,7 +7,7 @@ public class Arrays {
     public static int[][] cloneIntMatrix (int[][] a){
         int[][] result = new int[a.length][a[0].length];
         for (int i = 0; i < a.length; i++) {
-            result[i] = a[i].clone();
+            System.arraycopy(a[i], 0, result[i], 0, a[0].length);
         }
         return result;
     }
@@ -28,19 +28,6 @@ public class Arrays {
                     a[i][j] -= b[i][j];
             }
         }
-    }
-
-    public static boolean arrsEqual (int[][] a, int[][] b){
-        if (a == null && b == null) return true;
-        if (a == null || b == null) return false;
-        if (a.length != b.length) return false;
-        for (int i = 0; i < a.length; i++) {
-            if (a[i].length != b[i].length) return false;
-            for (int j = 0; j < a[i].length; j++) {
-                if (a[i][j] != b[i][j]) return false;
-            }
-        }
-        return true;
     }
 
 

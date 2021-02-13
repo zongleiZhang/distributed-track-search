@@ -1,14 +1,10 @@
 package com.ada.geometry;
 
 import com.ada.common.Constants;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.io.Serializable;
 import java.util.Arrays;
 
-@Getter
-@Setter
 public class Point implements Serializable, Cloneable {
     public double[] data;
 
@@ -24,6 +20,13 @@ public class Point implements Serializable, Cloneable {
         data = new double[]{x,y};
     }
 
+    public double[] getData() {
+        return data;
+    }
+
+    public void setData(double[] data) {
+        this.data = data;
+    }
 
     @Override
     public Point clone()  {
@@ -40,7 +43,7 @@ public class Point implements Serializable, Cloneable {
 
     @Override
     public String toString() {
-        return "(" + Constants.df.format(data[0]) + ", " + Constants.df.format(data[1])  + ")";
+        return Constants.df.format(data[0]) + " " + Constants.df.format(data[1]);
     }
 
     @Override

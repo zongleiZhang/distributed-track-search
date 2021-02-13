@@ -1,18 +1,17 @@
 package com.ada.QBSTree;
 
 import com.ada.common.Path;
-import com.ada.common.collections.Collections;
 import com.ada.geometry.*;
+import com.ada.geometry.track.TrackKeyTID;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Setter
 @Getter
-public class RCtree<T extends ElemRoot> implements Serializable {
+public class RCtree<T extends ElemRoot> implements Serializable, Index<T> {
 
 	public RCNode<T> root;
 
@@ -28,41 +27,48 @@ public class RCtree<T extends ElemRoot> implements Serializable {
 
 	public int cacheSize;
 
+	/**
+	 * 处理轨迹数据时要在叶节点存储TID集合
+	 */
+	public boolean hasTIDs;
+
+	public  RCtree(){}
 
 	/**
 	 * initialize the tree
 	 * @param lowBound the upper bound of the leaf node's data number.
 	 * @param balanceFactor the low bound of the leaf node's data number.
 	 */
-	public RCtree(int lowBound, int balanceFactor, int precision, Rectangle centerRegion, int cacheSize) {
+	public RCtree(int lowBound, int balanceFactor, int precision, Rectangle centerRegion, int cacheSize, boolean hasTIDs) {
 		this.lowBound = lowBound;
 		this.balanceFactor = balanceFactor;
 		this.upBound = 5*lowBound;
 		this.precision = precision;
 		cache = new ArrayList<>();
 		this.cacheSize = cacheSize;
+		this.hasTIDs = hasTIDs;
 		root = new RCDataNode<>(0, null, -1, centerRegion, null, new ArrayList<>(), 0, this, new ArrayList<>());
 	}
 
-	public RCtree(int lowBound, int balanceFactor, int precision, Rectangle centerRegion, int cacheSize, List<T> elms) {
+	public RCtree(int lowBound, int balanceFactor, int precision, Rectangle centerRegion, int cacheSize, boolean hasTIDs, List<T> elms) {
 		this.lowBound = lowBound;
 		this.balanceFactor = balanceFactor;
 		this.upBound = 5*lowBound;
 		this.precision = precision;
 		cache = new ArrayList<>();
 		this.cacheSize = cacheSize;
+		this.hasTIDs = hasTIDs;
 		RCDataNode<T> dataNode = new RCDataNode<>(0, null, -1, centerRegion, null, new ArrayList<>(), elms.size(), this, elms);
 		if (elms.isEmpty()){
 			root = dataNode;
 		}else{
+			Rectangle rect;
 			if (elms.get(0) instanceof RectElem){
-				List<RectElem> list = (List<RectElem>) elms;
-				List<Rectangle> rectangles = (List<Rectangle>) Collections.changeCollectionElem(list, from -> from.rect);
-				Rectangle rect = Rectangle.getUnionRectangle(rectangles.toArray(new Rectangle[0]));
-				dataNode.setRegion(rect);
+				rect = Rectangle.getUnionRectangle(elms.stream().map(t -> ((RectElem) t).rect).toArray(Rectangle[]::new));
 			}else {
-				dataNode.setRegion(centerRegion.clone());
+				rect = Rectangle.pointsMBR(elms.toArray(new Point[0]));
 			}
+			dataNode.setRegion(rect);
 			if (dataNode.elemNum > upBound){
 				root = dataNode.recursionSplit();
 			}else {
@@ -124,6 +130,7 @@ public class RCtree<T extends ElemRoot> implements Serializable {
 	}
 
 
+	@Override
 	public RCDataNode<T> insert(T elem) {
 		if (cacheSize == 0) {
 			RCDataNode<T> leafNode = root.chooseLeafNode(elem);
@@ -145,7 +152,7 @@ public class RCtree<T extends ElemRoot> implements Serializable {
 
 
 
-
+	@Override
 	public boolean delete(T elem) {
 		try {
 			if (cacheSize == 0) {
@@ -200,6 +207,30 @@ public class RCtree<T extends ElemRoot> implements Serializable {
 		return res;
 	}
 
+
+
+	@SuppressWarnings("unchecked")
+	public <M extends RectElem> void alterELem(M oldElem, Rectangle newRegion) {
+		Point newCenter = newRegion.getCenter();
+		if (oldElem.leaf.centerRegion.isInternal(newCenter)){
+			if (!oldElem.leaf.elms.remove(oldElem))
+				throw new IllegalArgumentException("leaf does not contains oldElem.");
+			oldElem.leaf.elemNum--;
+			oldElem.leaf.updateRegion(oldElem.rect,2);
+			oldElem.rect = newRegion;
+			oldElem.data = newCenter.data;
+			oldElem.leaf.elms.add(oldElem);
+			oldElem.leaf.elemNum++;
+			oldElem.leaf.updateRegion(oldElem.rect,1);
+		}else {
+			delete((T) oldElem);
+			oldElem.rect = newRegion;
+			oldElem.data = newCenter.data;
+			insert((T) oldElem);
+		}
+	}
+
+
 	
 	/**
 	 * 查找指定的索引项elem所在的叶节点
@@ -220,9 +251,34 @@ public class RCtree<T extends ElemRoot> implements Serializable {
 	}
 
 
-	public boolean check() {
-		return root.check();
+	public boolean check(Map<Integer, TrackKeyTID> trackMap) {
+		return root.check(trackMap);
 	}
+
+
+	/**
+	 * 获取指定区域region相交的轨迹ID集，包括与边界相交的轨迹ID
+	 * @param region 指定的区域
+	 */
+	public Set<Integer> getInternalTIDs(Rectangle region) {
+		Set<Integer> allTIDs = new HashSet<>();
+		root.getRegionTIDs(region, allTIDs);
+		return allTIDs;
+	}
+
+	/**
+	 * 获取指定区域region内部的轨迹ID集，不包括与边界相交的轨迹ID
+	 * @param region 指定的区域
+	 */
+	@Override
+	public Set<Integer> getInternalNoIPTIDs(Rectangle region) {
+		Set<Integer> allTIDs = new HashSet<>();
+		Set<Integer> intersections = new HashSet<>();
+		root.getRegionTIDs(region, allTIDs, intersections);
+		for (Integer intersection : intersections) allTIDs.remove(intersection);
+		return allTIDs;
+	}
+
 
     /**
      * 第一次计算root的region
@@ -238,26 +294,16 @@ public class RCtree<T extends ElemRoot> implements Serializable {
 	public void rebuildRoot(Rectangle roodCenterRegion) {
 		root.centerRegion = roodCenterRegion;
 		cache.clear();
-		if (root instanceof  RCDataNode){
-			RCDataNode<T> dataNode = (RCDataNode<T>) root;
-			if (dataNode.elemNum > upBound)
-				root = dataNode.recursionSplit();
-		}else{
+		if (root instanceof  RCDirNode){
 			RCDirNode<T> dirNode = (RCDirNode<T>) root;
-			if (dirNode.elemNum > upBound){
-				root = dirNode.redistribution();
-			}else{
-				List<T> elms = new ArrayList<>();
-				dirNode.getAllElement(elms);
-				root = new RCDataNode<>(0,null,-1, dirNode.centerRegion, dirNode.region, new ArrayList<>()
-						,dirNode.elemNum,dirNode.tree, elms);
-			}
+			root = dirNode.redistribution();
 		}
 	}
 
-	public List<T> getAllElems() {
-		List<T> elms = new ArrayList<>(root.elemNum);
-		root.getAllElement(elms);
-		return elms;
-	}
+	@Override
+    public List<Integer> trackInternal(Rectangle MBR) {
+        List<Integer> TIDs = new ArrayList<>();
+        root.trackInternal(MBR, TIDs);
+        return TIDs;
+    }
 }

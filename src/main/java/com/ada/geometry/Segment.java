@@ -1,16 +1,19 @@
 package com.ada.geometry;
 
 import com.ada.QBSTree.RectElem;
+import com.ada.common.ArrayQueue;
+
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
  * 点无序
  */
-public class Segment extends RectElem implements Serializable {
+public class Segment extends RectElem implements TrackInfo, Serializable {
     public TrackPoint p1;
     public TrackPoint p2;
-    public int hashCode;
 
     public Segment(){}
 
@@ -23,7 +26,56 @@ public class Segment extends RectElem implements Serializable {
             this.p1 = p1;
             this.p2 = p2;
         }
-        hashCode = Objects.hash(p1, p2);
+    }
+
+    public int getTID(){
+        return p1.TID;
+    }
+
+    public long getFirstTime(){
+        return p1.timestamp;
+    }
+
+    public long getSecondTime(){
+        return p2.timestamp;
+    }
+
+    public static List<Segment> pointsToSegments(List<TrackPoint> points){
+        if (points.size() < 2)
+            throw new IllegalArgumentException("points are too small.");
+        List<Segment> segments = new ArrayList<>((int)(points.size()*1.1));
+        TrackPoint p0 = points.get(0);
+        for (int i = 1; i < points.size(); i++) {
+            TrackPoint p1 = points.get(i);
+            segments.add(new Segment(p0,p1));
+            p0 = p1;
+        }
+        return segments;
+    }
+
+    public static List<TrackPoint> segmentsToPoints(List<Segment> segments){
+        if (segments.isEmpty())
+            return new ArrayList<>();
+        List<TrackPoint> points = new ArrayList<>();
+        for (Segment segment : segments)
+            points.add(segment.p1);
+        points.add(segments.get(segments.size()-1).p2);
+        return points;
+    }
+
+    public static List<TrackPoint> segmentsToPoints(ArrayQueue<Segment> segments){
+        if (segments.isEmpty())
+            return new ArrayList<>();
+        List<TrackPoint> points = new ArrayList<>();
+        for (Segment segment : segments)
+            points.add(segment.p1);
+        points.add(segments.getLast().p2);
+        return points;
+    }
+
+    @Override
+    public int obtainTID(){
+        return p2.TID;
     }
 
 
@@ -38,7 +90,7 @@ public class Segment extends RectElem implements Serializable {
 
     @Override
     public int hashCode() {
-        return hashCode;
+        return Objects.hash(p1, p2);
     }
 
     @Override

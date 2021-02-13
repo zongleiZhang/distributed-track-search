@@ -8,6 +8,8 @@ import java.io.Serializable;
 public class CacheElem implements Serializable{
 	public RCDataNode leaf;
 	public Path path;
+	
+	public CacheElem() {}
 
 	CacheElem(RCDataNode leaf) {
 		super();

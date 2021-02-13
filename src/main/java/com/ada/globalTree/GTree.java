@@ -3,10 +3,12 @@ package com.ada.globalTree;
 import com.ada.Hungarian.Hungary;
 import com.ada.common.Constants;
 import com.ada.common.Path;
-import com.ada.common.collections.Collections;
+import com.ada.flinkFunction.DTConstants;
+import com.ada.geometry.*;
 import com.ada.geometry.GridPoint;
 import com.ada.geometry.GridRectangle;
-import com.ada.geometry.Rectangle;
+import com.ada.geometry.track.TrackKeyTID;
+import  com.ada.common.collections.Collections;
 import org.apache.flink.api.java.tuple.Tuple2;
 
 import java.io.Serializable;
@@ -17,7 +19,9 @@ public class GTree implements Serializable {
     /**
      * 根节点
      */
-    private GDirNode root;
+    public GDirNode root;
+
+    public int subTask;
 
     /**
      * 全局索引叶节点索引项数量的下届
@@ -57,16 +61,16 @@ public class GTree implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         GTree gTree = (GTree) o;
+//        if (!Arrays.deepEquals(density, gTree.density))
+//            return false;
         if (!Objects.equals(root, gTree.root))
             return false;
-//        if (!com.ada.common.Arrays.arrsEqual(density, gTree.density))
-//            return false;
         if (!Objects.equals(dispatchLeafID, gTree.dispatchLeafID))
             return false;
         return true;
     }
 
-    static class DispatchLeafID implements Serializable{
+    static class DispatchLeafID implements Serializable {
         List<Integer> usedLeafID;
 
         List<Integer> canUseLeafID;
@@ -98,18 +102,16 @@ public class GTree implements Serializable {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             DispatchLeafID that = (DispatchLeafID) o;
-            if (!com.ada.common.collections.Collections.collectionsEqual(usedLeafID, that.usedLeafID))
+            if (!Collections.collectionsEqual(usedLeafID, that.usedLeafID))
                 return false;
-            if (!com.ada.common.collections.Collections.collectionsEqual(canUseLeafID, that.canUseLeafID))
+            if (!Collections.collectionsEqual(canUseLeafID, that.canUseLeafID))
                 return false;
             return true;
         }
     }
 
-    public boolean check(){
-        List<GDataNode> leafs = new ArrayList<>();
-        root.getLeafs(leafs);
-        return root.check();
+    public boolean check(Map<Integer, TrackKeyTID> trackMap){
+        return root.check(trackMap);
     }
 
 
@@ -399,6 +401,76 @@ public class GTree implements Serializable {
         List<GDataNode> list = new ArrayList<>();
         root.getLeafs(list);
         return list;
+    }
+
+    /**
+     * 计算track的经过分区passP、topK分区track.topKP、和enlargeTuple
+     */
+    public void countPartitions(Rectangle MBR, TrackKeyTID track) {
+        root.getIntersectLeafNodes(MBR, track.passP);
+        List<GDataNode> topKLeafs = new ArrayList<>();
+        root.getIntersectLeafNodes(track.rect, topKLeafs);
+        countEnlargeBound(track, topKLeafs, MBR);
+        topKLeafs.removeAll(track.passP);
+        if (!topKLeafs.isEmpty()) countTopKBound(MBR, track, topKLeafs);
+    }
+
+    private void countTopKBound(Rectangle MBR, TrackKeyTID track, List<GDataNode> topKLeafs) {
+        List<GLeafAndBound> list = new ArrayList<>(topKLeafs.size());
+        for (GDataNode leaf : topKLeafs) {
+            double bound = Constants.countEnlargeBound(MBR, leaf.region);
+            list.add(new GLeafAndBound(leaf, bound));
+        }
+        track.topKP.setList(list);
+    }
+
+    public void countTopKAndEnlargeBound(TrackKeyTID track, List<GDataNode> MBRLeafs, List<GDataNode> pruneAreaLeafs, Rectangle MBR) {
+        countEnlargeBound(track, pruneAreaLeafs, MBR);
+        pruneAreaLeafs.removeAll(MBRLeafs);
+        countTopKBound(MBR, track, pruneAreaLeafs);
+    }
+
+    /**
+     * 计算轨迹track的阈值的最大扩展数
+     * @param removeLeafs 移除的节点
+     */
+    public void countEnlargeBound(TrackKeyTID track, List<GDataNode> removeLeafs, Rectangle MBR) {
+        Rectangle pruneArea;
+        if (root.region.isInternal(track.rect))
+            pruneArea = track.rect;
+        else
+            pruneArea = track.rect.createIntersection(root.region);
+        GNode node = root.getInternalNode(pruneArea);
+        List<GDataNode> nodeLeafs = new ArrayList<>();
+        node.getLeafs(nodeLeafs);
+        nodeLeafs.removeAll(removeLeafs);
+        track.enlargeTuple.f0 = node;
+        Rectangle newRect = node.region.extendToEnoughBig();
+        track.enlargeTuple.f1 = Constants.countEnlargeOutBound(MBR, newRect);
+        for (GDataNode leaf : nodeLeafs) {
+            double enlargeBound = Constants.countEnlargeBound(MBR, leaf.region);
+            if (enlargeBound < track.enlargeTuple.f1) {
+                track.enlargeTuple.f0 = leaf;
+                track.enlargeTuple.f1 = enlargeBound;
+            }
+        }
+    }
+
+
+    /**
+     * 轨迹track的topKP变多，需要重新计算topKP和enlargeTuple
+     * @return 扩展的topKP
+     */
+    public List<GDataNode> enlargePartitions(TrackKeyTID track, Rectangle MBR) {
+        List<GDataNode> leafs = new ArrayList<>();
+        root.getIntersectLeafNodes(track.rect, leafs);
+        countEnlargeBound(track, new ArrayList<>(leafs), MBR);
+        leafs.removeAll(track.passP);
+        for (GLeafAndBound lb : track.topKP.getList())
+            leafs.remove(lb.leaf);
+        if (!leafs.isEmpty())
+            DTConstants.addTrackTopK(track,MBR, leafs);
+        return leafs;
     }
 }
 

@@ -219,7 +219,7 @@
                             </filters>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.ada.StreamingJob</mainClass>
+                                    <mainClass>com.com.ada.StreamingJob</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

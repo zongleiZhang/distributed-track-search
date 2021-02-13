@@ -1,13 +1,14 @@
 package com.ada.globalTree;
 
-import com.ada.geometry.GridPoint;
-import com.ada.geometry.GridRectangle;
-import com.ada.geometry.Rectangle;
+import com.ada.geometry.*;
+import com.ada.geometry.track.TrackKeyTID;
 import lombok.Getter;
 import lombok.Setter;
+import org.roaringbitmap.RoaringBitmap;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Getter
@@ -24,6 +25,8 @@ public abstract class GNode implements Serializable {
 
     public Rectangle region;
 
+    transient public RoaringBitmap bitmap;
+
     transient public GTree tree;
 
     public GNode(){}
@@ -34,25 +37,40 @@ public abstract class GNode implements Serializable {
         this.gridRegion = gridRegion;
         this.region = gridRegion.toRectangle();
         this.elemNum = elemNum;
+        bitmap = new RoaringBitmap();
         this.tree = tree;
     }
 
-    public boolean check() {
+    public boolean check(Map<Integer, TrackKeyTID> trackMap) {
         int total = tree.getRangeEleNum(gridRegion);
         if (elemNum != total)
-            throw new IllegalArgumentException("elemNum error");
+            return false;
+        for (Integer TID : bitmap) {
+            TrackKeyTID track = trackMap.get(TID);
+            if (this instanceof GDataNode){
+                GDataNode dataNode = (GDataNode) this;
+                GLeafAndBound gb = new GLeafAndBound(dataNode, 0.0);
+                if (track.enlargeTuple.f0 != dataNode &&
+                        !track.passP.contains(dataNode) &&
+                        (track.topKP.isEmpty() || !track.topKP.getList().contains(gb)))
+                    return false;
+            }else {
+                if (track.enlargeTuple.f0 != this)
+                    return false;
+            }
+        }
         if (!gridRegion.toRectangle().equals(region))
-            throw new IllegalArgumentException("rectangle error");
+            return false;
         if(!isRoot()) {
             if (parent.child[position] != this)
-                throw new IllegalArgumentException("parent child node error");
+                return false;
         }
 
         if (this instanceof GDirNode) {
             if (!((GDirNode) this).checkGDirNode())
                 return false;
             for(int chNum = 0; chNum<4; chNum++)
-                ((GDirNode ) this).child[chNum].check();
+                ((GDirNode ) this).child[chNum].check(trackMap);
         }
         return true;
     }
@@ -96,5 +114,15 @@ public abstract class GNode implements Serializable {
         return true;
     }
 
+    public abstract GNode getInternalNode(Rectangle rectangle);
 
+    public abstract void getAllDirNode(List<GDirNode> dirNodes);
+
+    public boolean isInTree(){
+        if (parent == null)
+            return tree.root == this;
+        if (parent.child[position] != this)
+            return false;
+        return parent.isInTree();
+    }
 }

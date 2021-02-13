@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 
 @Getter
 @Setter
@@ -35,7 +36,7 @@ public class GDataNode extends GNode implements Comparable<GDataNode>, Serializa
     boolean isRootLeaf(){
         return parent.parent == null && parent.child[0] instanceof GDataNode
                 && parent.child[1] instanceof GDataNode && parent.child[2] instanceof GDataNode
-                && parent.child[3] instanceof GDataNode;
+                && parent.child[3] instanceof GDataNode ;
     }
 
     GNode adjustNode() {
@@ -45,14 +46,14 @@ public class GDataNode extends GNode implements Comparable<GDataNode>, Serializa
             dirNode = fourSplit(elemNum/4, (int)(0.9*elemNum/4), elemNum/4);
             for (int i = 0; i < 4; i++)
                 dirNode.child[i] = ((GDataNode) dirNode.child[i]).adjustNode();
-        }else if (elemNum < 2.2* GTree.globalLowBound){
+        }else if (elemNum < 2.2*GTree.globalLowBound){
             if (isRoot()) {
                 dirNode = fourSplit(elemNum / 4, (int)(0.9*elemNum/4), elemNum / 4);
                 return dirNode;
             }else {
                 return this;
             }
-        }else if (elemNum >= 2.2* GTree.globalLowBound && elemNum < 5*M){
+        }else if (elemNum >= 2.2*GTree.globalLowBound && elemNum < 5*M){
             if ( elemNum > 4*M )
                 dirNode = fourSplit((int)(0.95*elemNum/4), (int)(0.90*elemNum/4), (int)(0.98*elemNum/4));
             else if ( elemNum > 3*M )
@@ -150,46 +151,38 @@ public class GDataNode extends GNode implements Comparable<GDataNode>, Serializa
         return this;
     }
 
+    void getIntersectLeafIDs(Rectangle rectangle, List<Integer> leafIDs) {
+            leafIDs.add(leafID);
+    }
+
     public void getIntersectLeafNodes(Rectangle rectangle, List<GDataNode> leafs) {
         leafs.add(this);
     }
+
+    public GNode getInternalNode(Rectangle rectangle){
+        return this;
+    }
+
+    public void getAllDirNode(List<GDirNode> dirNodes){ }
 
     @Override
     public int compareTo(@NotNull GDataNode o) {
         return Integer.compare(elemNum,o.elemNum);
     }
 
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        if (!super.equals(o)) return false;
+//        if (!super.equals(o)) return false;
         GDataNode dataNode = (GDataNode) o;
         if (leafID != dataNode.leafID)
             return false;
         return true;
     }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(leafID);
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

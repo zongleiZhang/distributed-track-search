@@ -1,14 +1,9 @@
 package com.ada.QBSTree;
 
 import com.ada.geometry.Point;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.io.Serializable;
 
-@SuppressWarnings("rawtypes")
-@Getter
-@Setter
 public class ElemRoot extends Point implements Cloneable ,Serializable {
     transient public RCDataNode leaf;
 
@@ -16,6 +11,15 @@ public class ElemRoot extends Point implements Cloneable ,Serializable {
 
     public ElemRoot(RCDataNode leaf, double[] data) {
         super(data);
+        this.leaf = leaf;
+//        this.center = center;
+    }
+
+    public RCDataNode getLeaf() {
+        return leaf;
+    }
+
+    public void setLeaf(RCDataNode leaf) {
         this.leaf = leaf;
     }
 

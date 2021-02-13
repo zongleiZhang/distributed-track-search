@@ -5,7 +5,6 @@ import com.ada.geometry.Rectangle;
 
 import java.util.Objects;
 
-@SuppressWarnings("rawtypes")
 public class Elem extends Rectangle{
 	public Point center;
 	public RCDataNode leaf;

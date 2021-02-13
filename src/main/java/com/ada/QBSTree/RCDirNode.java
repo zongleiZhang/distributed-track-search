@@ -1,13 +1,13 @@
 package com.ada.QBSTree;
 
 import com.ada.geometry.Rectangle;
+import com.ada.geometry.TrackInfo;
+import com.ada.geometry.track.TrackKeyTID;
+import  com.ada.common.collections.Collections;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 
 /**
@@ -22,6 +22,8 @@ public class RCDirNode<T extends ElemRoot> extends RCNode<T> {
 	 * 子节点
 	 */
 	public RCNode<T>[] child;
+
+	public RCDirNode() {}
 
 	RCDirNode(int depth, RCDirNode<T> parent, int position, Rectangle centerRegion, Rectangle region,
               List<Integer> preDepths, int elemNum, RCtree<T> tree, RCNode<T>[] child) {
@@ -85,7 +87,45 @@ public class RCDirNode<T extends ElemRoot> extends RCNode<T> {
 		}
 	}
 
+	@Override
+	void getRegionTIDs(Rectangle region, Set<Integer> allTIDs, Set<Integer> intersections){
+		for (RCNode<T> rcNode : child) {
+			if (rcNode.region != null && region.isIntersection(rcNode.region)){
+				if (region.isInternal(rcNode.region))
+					rcNode.getAllTIDs(allTIDs);
+				else
+					rcNode.getRegionTIDs(region,allTIDs,intersections);
+			}
+		}
+	}
 
+
+	@Override
+	void getRegionTIDs(Rectangle region, Set<Integer> allTIDs){
+		for (RCNode<T> rcNode : child) {
+			if (rcNode.region != null && region.isIntersection(rcNode.region)){
+				if (region.isInternal(rcNode.region))
+					rcNode.getAllTIDs(allTIDs);
+				else
+					rcNode.getRegionTIDs(region,allTIDs);
+			}
+		}
+	}
+
+    @Override
+    void trackInternal(Rectangle region, List<Integer> TIDs){
+        for (RCNode<T> rcNode : child) {
+            if (rcNode.region != null && rcNode.region.isInternal(region)){
+                rcNode.trackInternal(region, TIDs);
+            }
+        }
+    }
+
+	@Override
+	public void getAllTIDs(Set<Integer> TIDs) {
+		for (RCNode<T> rcNode : child)
+			rcNode.getAllTIDs(TIDs);
+	}
 
 	@Override
 	Rectangle calculateRegion(){
@@ -123,7 +163,6 @@ public class RCDirNode<T extends ElemRoot> extends RCNode<T> {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
 	<M extends RectElem> void rectQuery(Rectangle rectangle, List<M> res, boolean isInternal){
 		for (RCNode<T> node : child) {
@@ -252,9 +291,14 @@ public class RCDirNode<T extends ElemRoot> extends RCNode<T> {
 	 * @return 重建后的子树根节点
 	 */
 	RCDirNode<T> redistribution () {
-		List<T> elms = new ArrayList<>();
+		List<T> elms = new ArrayList<>(elemNum);
 		getAllElement(elms);
 		RCDirNode<T> res;
+		boolean flag = false;
+		if (tree.hasTIDs) {
+			flag = true;
+			tree.hasTIDs = false;
+		}
 		RCDataNode<T> dataNode = new RCDataNode<>(0,null,-1, centerRegion, region, new ArrayList<>()
 				,elemNum,tree,elms);
 		res = dataNode.recursionSplit();
@@ -262,12 +306,21 @@ public class RCDirNode<T extends ElemRoot> extends RCNode<T> {
 		res.position = position;
 		if(parent != null)
 			parent.child[position] = res;
+		if (flag){
+			tree.hasTIDs = true;
+			List<RCDataNode<T>> leaves = new ArrayList<>();
+			res.getLeafNodes(leaves);
+			for (RCDataNode<T> leaf : leaves) {
+				leaf.TIDs = new HashSet<>(Collections.changeCollectionElem(leaf.elms, t -> ((TrackInfo) t).obtainTID()));
+			}
+		}
 		return res;
 	}
 
 	@Override
-	boolean check(){
-		super.check();
+	boolean check(Map<Integer, TrackKeyTID> trackMap){
+		if (!super.check(trackMap))
+			return false;
 		if(centerRegion.getLeftBound() != child[0].centerRegion.getLeftBound() ||
 				centerRegion.getLeftBound() != child[2].centerRegion.getLeftBound() ||
 				centerRegion.getRightBound() != child[1].centerRegion.getRightBound() ||
@@ -289,11 +342,13 @@ public class RCDirNode<T extends ElemRoot> extends RCNode<T> {
 			return false;
 		if(elemNum != child[0].elemNum + child[1].elemNum + child[2].elemNum + child[3].elemNum)
 			return false;
-		if (!isBalance(0, false, 0) || !isBalance(1, false, 0) || !isBalance(2, false, 0) ||
+		if (!isBalance(0, false, 0) ||
+				!isBalance(1, false, 0) ||
+				!isBalance(2, false, 0) ||
 				!isBalance(3, false, 0))
 			return false;
 		for(int chNum = 0; chNum<4; chNum++)
-			child[chNum].check();
+			child[chNum].check(trackMap);
 		return true;
 	}
 

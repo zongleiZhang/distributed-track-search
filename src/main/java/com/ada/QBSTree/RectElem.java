@@ -2,11 +2,7 @@ package com.ada.QBSTree;
 
 import com.ada.geometry.Point;
 import com.ada.geometry.Rectangle;
-import lombok.Getter;
-import lombok.Setter;
 
-@Getter
-@Setter
 public class RectElem extends ElemRoot{
 
     public Rectangle rect;
@@ -40,6 +36,14 @@ public class RectElem extends ElemRoot{
         data = new double[]{(pLow.data[0] + pHigh.data[0]) / 2,
                 (pLow.data[1] + pHigh.data[1]) / 2};
 
+    }
+
+    public Rectangle getRect() {
+        return rect;
+    }
+
+    public void setRect(Rectangle rect) {
+        this.rect = rect;
     }
 
     @Override

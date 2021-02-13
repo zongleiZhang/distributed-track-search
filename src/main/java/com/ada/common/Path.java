@@ -102,7 +102,7 @@ public class Path {
      * @param path1 路径1
      * @return 0：两条路径互相没有自路径，1：path0是path1的子路径， -1： path1是path0的子路径
      */
-    public static int isSameWay(Path path0, Path path1){
+    public static int isSameWay(Path path0,Path path1){
         List<Integer> list0 = path0.getIntsPath();
         List<Integer> list1 = path1.getIntsPath();
         List<Integer> tmp;

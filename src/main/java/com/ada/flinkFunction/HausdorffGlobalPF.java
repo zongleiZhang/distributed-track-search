@@ -1512,6 +1512,6 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
         segmentIndex = new RCtree<>(4,1,11, Constants.globalRegion,0, true);
         pruneIndex = new RCtree<>(4,1,11, Constants.globalRegion,0, false);
         count = 0;
-        jedis = new Jedis("localhost");
+//        jedis = new Jedis("localhost");
     }
 }

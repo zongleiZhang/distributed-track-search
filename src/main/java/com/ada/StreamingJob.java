@@ -11,10 +11,10 @@ import redis.clients.jedis.Jedis;
 public class StreamingJob {
 
 	public static void main(String[] args) throws Exception {
-		Jedis jedis = new Jedis("localhost");
-		jedis.flushDB();
-		jedis.flushAll();
-		jedis.close();
+//		Jedis jedis = new Jedis("localhost");
+//		jedis.flushDB();
+//		jedis.flushAll();
+//		jedis.close();
 
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
@@ -36,8 +36,13 @@ public class StreamingJob {
 //		source = env.addSource(myConsumer)
 //				.setParallelism(Constants.topicPartition);
 
-
-		env.readTextFile("D:\\研究生资料\\track_data\\成都滴滴\\Sorted_2D\\XY_20161101")
+		String filePath;
+		if ("Windows 10".equals(System.getProperty("os.name"))){
+			filePath = "D:\\研究生资料\\track_data\\成都滴滴\\Sorted_2D\\XY_20161101";
+		}else {
+			filePath = "/home/chenliang/data/didi/Cheng_Du/Sorted_2D/XY_20161101";
+		}
+		env.readTextFile(filePath)
 				.map(new MapToTrackPoint())
 				.assignTimestampsAndWatermarks(new TrackPointTAndW())
 

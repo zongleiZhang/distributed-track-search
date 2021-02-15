@@ -96,8 +96,8 @@ public class Constants implements Serializable {
             if (globalPartition <= 0 || (globalPartition & (globalPartition - 1)) != 0)
                 throw new IllegalArgumentException();
             dividePartition = Integer.parseInt(pro.getProperty("dividePartition"));
-            if (dividePartition <= 0 || (dividePartition & (dividePartition - 1)) != 0)
-                throw new IllegalArgumentException();
+//            if (dividePartition <= 0 || (dividePartition & (dividePartition - 1)) != 0)
+//                throw new IllegalArgumentException();
             keyTIDPartition = Integer.parseInt(pro.getProperty("keyTIDPartition"));
             densityFre = Integer.parseInt(pro.getProperty("densityFre"));
             GTree.globalLowBound = Integer.parseInt(pro.getProperty("globalLowBound"));

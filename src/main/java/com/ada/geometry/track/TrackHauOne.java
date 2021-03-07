@@ -51,13 +51,9 @@ public class TrackHauOne extends RectElem implements Serializable {
                 relatedInfo.put(state,state);
                 return state;
             }else {
-                if (!Constants.isEqual(oldState.distance, state.distance))
-                    System.out.print("");
                 return oldState;
             }
         }else {
-            if (!Constants.isEqual(oldState.distance, state.distance))
-                System.out.print("");
             return oldState;
         }
 
@@ -158,8 +154,6 @@ public class TrackHauOne extends RectElem implements Serializable {
     public <T extends TrackHauOne> void removeICandidate(int i, Map<Integer, T> map){
         Integer comparedTID = candidateInfo.remove(i-1);
         T t = map.get(comparedTID);
-        if (t == null)
-            System.out.print("");
         if (!t.candidateInfo.contains(trajectory.TID)){
             t.removeRelatedInfo(trajectory.TID);
             removeRelatedInfo(comparedTID);
@@ -193,8 +187,6 @@ public class TrackHauOne extends RectElem implements Serializable {
         }else if (candidateInfo.size() == 1){
             return getSimilarState(candidateInfo.get(0));
         }else{
-            if (candidateInfo.size() == 0)
-                System.out.print("");
             return getSimilarState(candidateInfo.get(candidateInfo.size()-1));
         }
     }
@@ -231,8 +223,6 @@ public class TrackHauOne extends RectElem implements Serializable {
         while (index != 0){
             comparedTid1 = candidateInfo.get(index - 1);
             state1 = getSimilarState(comparedTid1);
-            if (state1 == null || state2 == null)
-                System.out.print("");
             if (Double.compare(state2.distance, state1.distance) < 0) {
                 candidateInfo.set(index, comparedTid1);
             }else {

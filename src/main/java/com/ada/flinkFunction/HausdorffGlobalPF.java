@@ -96,12 +96,10 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
             for (Integer tid : inAndOutTIDs) mayBeAnotherTopK(trackMap.get(tid));
             for (TrackKeyTID track : newTracks) mayBeAnotherTopK(track);
 
-            if (count%10000 == 0)
+            if (count%50 == 0)
                 check();
 
             if (density != null) {
-                if (count == 8)
-                    System.out.print("");
                 densityQue.add(new Tuple2<>(winStart,density));
                 Arrays.addArrsToArrs(globalTree.density, density, true);
                 if (densityQue.element().f0 < logicWinStart)
@@ -188,8 +186,6 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
                 }
             }
             count++;
-            if (!check())
-                System.out.print("");
         }
     }
 
@@ -336,8 +332,6 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
             delLeaves.remove(leaf);
         trackLeafsMap.forEach((TID, trackLeafs) -> {
             TrackKeyTID track = trackMap.get(TID);
-            if (count == 16 && TID == 6146)
-                System.out.print("");
             Rectangle MBR = track.rect.clone().extendLength(-track.threshold);
             G2LPoints trackPs = G2LPoints.toG2LPoints(track.trajectory);
             if (track.topKP.isEmpty() && trackLeafs.f1.isEmpty()){ //修改前后都没有topK节点
@@ -356,8 +350,6 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
         enlargeTIDs.andNot(rb);
         for (Integer TID : enlargeTIDs) {
             TrackKeyTID track = trackMap.get(TID);
-            if (count == 43 && TID == 20485)
-                System.out.print("");
             List<GDataNode> removeLeafs = new ArrayList<>(track.passP);
             if (!track.topKP.isEmpty()){
                 for (GLeafAndBound gb : track.topKP.getList())
@@ -603,11 +595,11 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
 
     private boolean check(){
         if (!pruneIndex.check(trackMap))
-            return false;
+            throw new IllegalArgumentException();
         if (!segmentIndex.check(trackMap))
-            return false;
+            throw new IllegalArgumentException();
         if (!globalTree.check(trackMap))
-            return false;
+            throw new IllegalArgumentException();
         for (TrackKeyTID track : trackMap.values()) {
             if (!checkTrack(track))
                 return false;
@@ -621,9 +613,9 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
         //trajectory.elms -- segmentIndex检查
         for (Segment segment : track.trajectory.elms) {
             if (!segment.leaf.isInTree())
-                return false;
+                throw new IllegalArgumentException();
             if (!segment.leaf.elms.contains(segment))
-                return false;
+                throw new IllegalArgumentException();
         }
 
         //RelatedInfo 检查
@@ -632,27 +624,27 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
             int comparedTID = state.getStateAnoTID(TID);
             TrackHauOne comparedTrack = trackMap.get(comparedTID);
             if (key != state)
-                return false;
+                throw new IllegalArgumentException();
             if (comparedTrack.getSimilarState(TID) != state)
-                return false;
+                throw new IllegalArgumentException();
             if (!SimilarState.isEquals(state, Hausdorff.getHausdorff(track.trajectory, comparedTrack.trajectory)))
-                return false;
+                throw new IllegalArgumentException();
             if (!comparedTrack.candidateInfo.contains(TID) && !track.candidateInfo.contains(comparedTID))
-                return false;
+                throw new IllegalArgumentException();
         }
 
         //candidateInfo 检查
         if (track.candidateInfo.size() < Constants.topK)
-            return false;
+            throw new IllegalArgumentException();
         for (Integer comparedTID : track.candidateInfo) {
             if(track.getSimilarState(comparedTID) == null)
-                return false;
+                throw new IllegalArgumentException();
         }
         for (int i = 0; i < track.candidateInfo.size()-1; i++) {
             SimilarState state1 = track.getSimilarState(track.candidateInfo.get(i));
             SimilarState state2 = track.getSimilarState(track.candidateInfo.get(i+1));
             if (Double.compare(state1.distance, state2.distance) > 0)
-                return false;
+                throw new IllegalArgumentException();
         }
 
 
@@ -661,7 +653,7 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
 
         //rect 检查
         if (!pruneArea.equals(track.rect))
-            return false;
+            throw new IllegalArgumentException();
 
         //重新计算
         TrackKeyTID tmpTrack = new TrackKeyTID(null, null, null, null ,TID,null, null);
@@ -669,7 +661,7 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
         selectedTIDs = segmentIndex.getInternalNoIPTIDs(pruneArea);
         selectedTIDs.remove(TID);
         if (selectedTIDs.size() < Constants.topK)
-            return false;
+            throw new IllegalArgumentException();
         List<SimilarState> result = new ArrayList<>(selectedTIDs.size());
         for (Integer comparedTid : selectedTIDs) {
             TrackKeyTID comparedTrack = trackMap.get(comparedTid);
@@ -685,7 +677,7 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
         if (track.threshold < tmpTrack.threshold ||
                 track.threshold < track.getKCanDistance(Constants.topK).distance ||
                 track.getKCanDistance(Constants.topK + Constants.t * 2).distance < track.threshold) {
-            return false;
+            throw new IllegalArgumentException();
         }else {
             tmpTrack.rect = pruneArea;
             tmpTrack.threshold = track.threshold;
@@ -694,70 +686,70 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
         //enlargeTuple 检查
         globalTree.countPartitions(MBR, tmpTrack);
         if (!track.enlargeTuple.f0.isInTree())
-            return false;
+            throw new IllegalArgumentException();
         if (!Constants.isEqual(track.enlargeTuple.f1, tmpTrack.enlargeTuple.f1))
-            return false;
+            throw new IllegalArgumentException();
         if (!track.enlargeTuple.f0.bitmap.contains(TID))
-            return false;
+            throw new IllegalArgumentException();
         Rectangle rect = track.enlargeTuple.f0.region.extendToEnoughBig();
         if (rect.isIntersection(track.rect)){
             if (!(!rect.isInternal(MBR.clone().extendLength(track.enlargeTuple.f1 + 0.0002)) &&
                     rect.isInternal(MBR.clone().extendLength(track.enlargeTuple.f1 - 0.0002))))
-                return false;
+                throw new IllegalArgumentException();
         }else {
             if ( !(rect.isIntersection(MBR.clone().extendLength(track.enlargeTuple.f1 + 0.0002)) &&
                     !rect.isIntersection(MBR.clone().extendLength(track.enlargeTuple.f1 - 0.0002))))
-                return false;
+                throw new IllegalArgumentException();
         }
 
         //passP 检查
         if (!Collections.collectionsEqual(track.passP, tmpTrack.passP))
-            return false;
+            throw new IllegalArgumentException();
         for (GDataNode passLeaf : track.passP) {
             if (!passLeaf.isInTree())
-                return false;
+                throw new IllegalArgumentException();
             if (!passLeaf.bitmap.contains(TID))
-                return false;
+                throw new IllegalArgumentException();
         }
 
         //topKP 检查
         if (tmpTrack.topKP.isEmpty()){
             if (!track.topKP.isEmpty())
-                return false;
+                throw new IllegalArgumentException();
             if (track.threshold > tmpTrack.enlargeTuple.f1)
-                return false;
+                throw new IllegalArgumentException();
             if (track.threshold < tmpTrack.threshold)
-                return false;
+                throw new IllegalArgumentException();
             if(track.leaf != null) //pruneIndex检查
-                return false;
+                throw new IllegalArgumentException();
             if (track.getKCanDistance(Constants.topK).distance > track.threshold)
-                return false;
+                throw new IllegalArgumentException();
         }else {
             if (track.topKP.isEmpty())
-                return false;
+                throw new IllegalArgumentException();
             for (GLeafAndBound gb : track.topKP.getList()) {
                 if (!gb.leaf.isInTree())
-                    return false;
+                    throw new IllegalArgumentException();
                 GLeafAndBound gbb = tmpTrack.topKP.get(gb);
                 if (!gbb.leaf.isInTree())
-                    return false;
+                    throw new IllegalArgumentException();
                 if (!Constants.isEqual(gb.bound, gbb.bound))
-                    return false;
+                    throw new IllegalArgumentException();
                 if (!gb.leaf.bitmap.contains(TID))
-                    return false;
+                    throw new IllegalArgumentException();
             }
             if (!Collections.collectionsEqual(track.topKP.getList(), tmpTrack.topKP.getList()))
-                return false;
+                throw new IllegalArgumentException();
             if (!track.leaf.isInTree()) //pruneIndex检查
-                return false;
+                throw new IllegalArgumentException();
             if(!track.leaf.elms.contains(track))
-                return false;
+                throw new IllegalArgumentException();
             if (!Collections.collectionsEqual(track.candidateInfo, selectedTIDs))
-                 return false;
+                 throw new IllegalArgumentException();
             for (GLeafAndBound gb : track.topKP.getList()) {
                 if ( !(gb.leaf.region.isIntersection(MBR.clone().extendLength(gb.bound + 0.0002)) &&
                         !gb.leaf.region.isIntersection(MBR.clone().extendLength(gb.bound - 0.0002))))
-                    return false;
+                    throw new IllegalArgumentException();
             }
         }
         return true;
@@ -765,8 +757,6 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
 
     private void dealCandidateSmall(TrackKeyTID track) {
         Integer TID = track.trajectory.TID;
-        if (count == 14 && TID == 22140)
-            System.out.print("");
         if (track.enlargeTuple.f0 != track.passP.get(0)) track.enlargeTuple.f0.bitmap.remove(TID);
         List<SimilarState> list = new ArrayList<>(track.getRelatedInfo().keySet());
         java.util.Collections.sort(list);
@@ -862,8 +852,6 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
         RoaringBitmap calculatedTIDs = new RoaringBitmap();
         for (Integer tid : outTIDs) {
             TrackKeyTID track = trackMap.get(tid);
-            if (count == 12 && tid == 701)
-                System.out.print("");
             for (SimilarState state : track.getRelatedInfo().values()) {
                 int comparedTid = state.getStateAnoTID(tid);
                 if (!calculatedTIDs.contains(comparedTid)) { //track与comparedTid的距离没有计算过
@@ -891,8 +879,6 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
 
         for (Integer tid : inTIDs) {
             TrackKeyTID track = trackMap.get(tid);
-            if (count == 14 && tid == 2357)
-                System.out.print("");
             List<TrackPoint> inPoints = inPointsMap.get(tid);
             Rectangle pointsMBR = Rectangle.pointsMBR(inPoints.toArray(new Point[0]));
             if (track.trajectory.elms.size() == inPoints.size() - 1){ //新的轨迹
@@ -917,8 +903,6 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
                 for (Iterator<Map.Entry<SimilarState, SimilarState>> ite = track.getRelatedInfo().entrySet().iterator(); ite.hasNext();){
                     SimilarState state = ite.next().getValue();
                     int comparedTid = state.getStateAnoTID(tid);
-                    if (tid == 28780 && comparedTid == 28054)
-                        System.out.print("");
                     if (!calculatedTIDs.contains(comparedTid)) { //track与comparedTid的距离没有计算过
                         TrackKeyTID comparedTrack = trackMap.get(comparedTid);
                         if (inAndOutTIDs.contains(comparedTid)) {
@@ -946,8 +930,6 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
 
         for (Integer tid : inAndOutTIDs) {
             TrackKeyTID track = trackMap.get(tid);
-            if (count == 17 && tid == 18058)
-                System.out.print("");
             List<TrackPoint> inPoints = inPointsMap.get(tid);
             Rectangle pointsMBR = Rectangle.pointsMBR(inPoints.toArray(new Point[0]));
             pointsMBR.getUnionRectangle(track.trajectory.elms.getLast());

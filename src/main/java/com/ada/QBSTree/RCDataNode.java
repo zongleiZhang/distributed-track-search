@@ -53,8 +53,6 @@ public class RCDataNode<T extends ElemRoot> extends RCNode<T> {
 	void getRegionTIDs(Rectangle region, Set<Integer> allTIDs, Set<Integer> intersections){
 		List<Segment> segments = (List<Segment>) elms;
 		for (Segment segment : segments) {
-			if (segment.getTID() == 979 && Constants.isEqual(segment.p2.data[0], 6541.8508))
-				System.out.print("");
 			if (region.isIntersection(segment)) {
 				if (region.isInternal(segment.rect))
 					allTIDs.add(segment.getTID());

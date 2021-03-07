@@ -28,16 +28,12 @@ public class DensityKeySelector implements KeySelector<TrackPoint, Integer> {
         for (int i = 0; i < bitmaps.size(); i++) {
             if (bitmaps.get(i).contains(TID)) {
                 key = Constants.densitySubTaskKeyMap.get(i);
-                if (key == null)
-                    System.out.print("");
                 return key;
             }
         }
         factor = (factor + 1) & parallelism;
         bitmaps.get(factor).add(TID);
         key = Constants.densitySubTaskKeyMap.get(factor);
-        if (key == null)
-            System.out.print("");
         return key;
     }
 }

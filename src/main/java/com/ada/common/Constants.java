@@ -84,7 +84,13 @@ public class Constants implements Serializable {
     static {
         try {
             Properties pro = new Properties();
-            FileInputStream in = new FileInputStream("conf.properties");
+            String confPath;
+            if ("Windows 10".equals(System.getProperty("os.name"))){
+                confPath = "conf.properties";
+            }else {
+                confPath = "/home/chenliang/data/zzl/conf.properties";
+            }
+            FileInputStream in = new FileInputStream(confPath);
             pro.load(in);
             in.close();
 

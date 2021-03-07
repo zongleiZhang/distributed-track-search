@@ -60,10 +60,6 @@ public class HausdorffLocalPF extends ProcessWindowFunction<G2LElem, QueryResult
         this.out = out;
         this.winStart = context.window().getStart();
         classifyElements(elements);
-//        if (subTask != 3)
-//            return;
-        if (subTask == 3 && count >= 8)
-            System.out.print("");
 
         //记录无采样点滑出，但其topK结果可能发生变化的轨迹
         Set<TrackHauOne> pruneChangeTracks = new HashSet<>();
@@ -138,34 +134,34 @@ public class HausdorffLocalPF extends ProcessWindowFunction<G2LElem, QueryResult
 
     private boolean check() {
         if (topKTrackMap == null)
-            System.out.print("");
+            throw new IllegalArgumentException();
         for (Integer TID : topKTrackMap.keySet()) {
             if (passTrackMap.containsKey(TID))
-                return false;
+                throw new IllegalArgumentException();
         }
         if (passTrackMap.size() != verifyPass.size()) {
             difference(verifyPass, passTrackMap);
-            return false;
+            throw new IllegalArgumentException();
         }
         if (topKTrackMap.size() != verifyTopK.size()) {
             difference(verifyTopK, topKTrackMap);
-            return false;
+            throw new IllegalArgumentException();
         }
         if (!verifyTrack(verifyPass, passTrackMap))
-            return false;
+            throw new IllegalArgumentException();
         if (!verifyTrack(verifyTopK, topKTrackMap))
-            return false;
+            throw new IllegalArgumentException();
         if (!checkPruneIndex())
-            return false;
+            throw new IllegalArgumentException();
         if (!checkSegmentIndex())
-            return false;
+            throw new IllegalArgumentException();
         for (TrackHauOne track : passTrackMap.values()) {
             if (!checkTrack(track, true))
-                return false;
+                throw new IllegalArgumentException();
         }
         for (TrackHauOne track : topKTrackMap.values()) {
             if (!checkTrack(track, false))
-                return false;
+                throw new IllegalArgumentException();
         }
         return true;
     }
@@ -200,13 +196,13 @@ public class HausdorffLocalPF extends ProcessWindowFunction<G2LElem, QueryResult
             for (Segment segment : track.trajectory.elms) {
                 Long mapKey = ((segment.getSecondTime()/Constants.windowSize)) * Constants.windowSize;
                 if (!tIDsMap.get(mapKey).passTIDs.contains(TID))
-                    return false;
+                    throw new IllegalArgumentException();
             }
         }else {
             for (Segment segment : track.trajectory.elms) {
                 Long mapKey = ((segment.getSecondTime()/Constants.windowSize)) * Constants.windowSize;
                 if (!tIDsMap.get(mapKey).topKTIDs.contains(TID))
-                    return false;
+                    throw new IllegalArgumentException();
             }
         }
 
@@ -217,29 +213,29 @@ public class HausdorffLocalPF extends ProcessWindowFunction<G2LElem, QueryResult
             TrackHauOne comparedTrack = passTrackMap.get(comparedTID);
             if (isPass && comparedTrack == null) comparedTrack = topKTrackMap.get(comparedTID);
             if (comparedTrack == null)
-                return false;
+                throw new IllegalArgumentException();
             if (key != state)
-                return false;
+                throw new IllegalArgumentException();
             if (comparedTrack.getSimilarState(TID) != state)
-                return false;
+                throw new IllegalArgumentException();
             if (!SimilarState.isEquals(state, Hausdorff.getHausdorff(track.trajectory, comparedTrack.trajectory)))
-                return false;
+                throw new IllegalArgumentException();
             if (!comparedTrack.candidateInfo.contains(TID) && !track.candidateInfo.contains(comparedTID))
-                return false;
+                throw new IllegalArgumentException();
         }
 
         //candidateInfo 检查
         if (track.candidateInfo.size() < Constants.topK)
-            return false;
+            throw new IllegalArgumentException();
         for (Integer comparedTID : track.candidateInfo) {
             if(track.getSimilarState(comparedTID) == null)
-                return false;
+                throw new IllegalArgumentException();
         }
         for (int i = 0; i < track.candidateInfo.size()-1; i++) {
             SimilarState state1 = track.getSimilarState(track.candidateInfo.get(i));
             SimilarState state2 = track.getSimilarState(track.candidateInfo.get(i+1));
             if (Double.compare(state1.distance, state2.distance) > 0)
-                return false;
+                throw new IllegalArgumentException();
         }
 
         Rectangle MBR = track.getPruningRegion(0.0);
@@ -247,15 +243,15 @@ public class HausdorffLocalPF extends ProcessWindowFunction<G2LElem, QueryResult
         double dis0 = track.getKCanDistance(Constants.topK).distance;
         double dis1 = track.getKCanDistance(Constants.topK + Constants.t*2).distance;
         if (track.threshold > dis1 || track.threshold < dis0)
-            return false;
+            throw new IllegalArgumentException();
 
         //rect 检查
         if (!pruneArea.equals(track.rect))
-            return false;
+            throw new IllegalArgumentException();
         Set<Integer> selectedTIDs = segmentIndex.getInternalNoIPTIDs(pruneArea);
         selectedTIDs.remove(TID);
         if (!Collections.collectionsEqual(selectedTIDs, track.candidateInfo))
-            return false;
+            throw new IllegalArgumentException();
         return true;
     }
 
@@ -265,10 +261,10 @@ public class HausdorffLocalPF extends ProcessWindowFunction<G2LElem, QueryResult
         for (TrackHauOne track : passTrackMap.values())
             total += track.trajectory.elms.size();
         if (total != list.size())
-            return false;
+            throw new IllegalArgumentException();
         for (Segment segment : list) {
             if (!passTrackMap.get(segment.getTID()).trajectory.elms.contains(segment))
-                return false;
+                throw new IllegalArgumentException();
         }
         return true;
     }
@@ -276,13 +272,13 @@ public class HausdorffLocalPF extends ProcessWindowFunction<G2LElem, QueryResult
     private boolean checkPruneIndex() {
         List<TrackHauOne> tracks = pruneIndex.getAllElement();
         if (tracks.size() != passTrackMap.size()+topKTrackMap.size())
-            return false;
+            throw new IllegalArgumentException();
         for (TrackHauOne track : tracks) {
             TrackHauOne compareTrack = passTrackMap.get(track.trajectory.TID);
             if (compareTrack == null)
                 compareTrack = topKTrackMap.get(track.trajectory.TID);
             if (compareTrack != track)
-                return false;
+                throw new IllegalArgumentException();
         }
         return true;
     }
@@ -849,8 +845,6 @@ public class HausdorffLocalPF extends ProcessWindowFunction<G2LElem, QueryResult
             TrackHauOne comparedTrack = passTrackMap.get(comparedTid);
             if (comparedTrack == null)
                 comparedTrack = topKTrackMap.get(comparedTid);
-            if (count == 16 && comparedTid == 14852)
-                System.out.print("");
             if (comparedTrack != null){
                 int index = comparedTrack.candidateInfo.indexOf(TID);
                 comparedTrack.removeRelatedInfo(state);

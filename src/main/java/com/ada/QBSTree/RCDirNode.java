@@ -88,7 +88,7 @@ public class RCDirNode<T extends ElemRoot> extends RCNode<T> {
 	}
 
 	@Override
-	void getRegionTIDs(Rectangle region, Set<Integer> allTIDs, Set<Integer> intersections){
+	void  getRegionTIDs(Rectangle region, Set<Integer> allTIDs, Set<Integer> intersections){
 		for (RCNode<T> rcNode : child) {
 			if (rcNode.region != null && region.isIntersection(rcNode.region)){
 				if (region.isInternal(rcNode.region))

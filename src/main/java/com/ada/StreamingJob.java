@@ -50,26 +50,11 @@ public class StreamingJob {
 				.timeWindow(Time.milliseconds(Constants.windowSize))
 				.process(new DensityPF())
 				.setParallelism(Constants.densityPartition)
-//				.flatMap(new FlatMapFunction<D2GElem, String >() {
-//					@Override
-//					public void flatMap(D2GElem value, Collector<String> out) throws Exception {
-//						if (value.getD2GKey() == -1)
-//							out.collect("123");
-//					}
-//				})
 
 				.keyBy(value -> Constants.globalSubTaskKeyMap.get(value.getD2GKey()))
 				.timeWindow(Time.milliseconds(Constants.windowSize))
 				.process(new HausdorffGlobalPF())
 				.setParallelism(Constants.globalPartition)
-//				.flatMap(new FlatMapFunction<G2LElem, String>() {
-//					@Override
-//					public void flatMap(G2LElem value, Collector<String> out) {
-//						if (value.flag == -1){
-//							out.collect("123");
-//						}
-//					}
-//				})
 
 				.keyBy(value -> Constants.divideSubTaskKeyMap.get(value.key))
 				.timeWindow(Time.milliseconds(Constants.windowSize))

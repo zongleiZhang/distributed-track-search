@@ -305,7 +305,7 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
                         value.f1.forEach(leaf -> leaf.bitmap.add(TID));
                         if (!enlargeTIDs.contains(TID)) {
                             Set<GDataNode> newLeafsSet = new HashSet<>(newLeafs);
-                            for (GDataNode dataNode : value.f1) newLeafsSet.remove(dataNode);
+                            newLeafsSet.removeAll(value.f1);
                             Tuple2<GNode, Double> tuple = DTConstants.countEnlarge(newLeafsSet, MBR);
                             if (track.enlargeTuple.f1 > tuple.f1) {
                                 track.enlargeTuple.f0.bitmap.remove(TID);
@@ -328,8 +328,7 @@ public class HausdorffGlobalPF extends ProcessWindowFunction<D2GElem, G2LElem, I
                 }
             });
         });
-        for (GDataNode leaf : newLeaves)
-            delLeaves.remove(leaf);
+        delLeaves.removeAll(newLeaves);
         trackLeafsMap.forEach((TID, trackLeafs) -> {
             TrackKeyTID track = trackMap.get(TID);
             Rectangle MBR = track.rect.clone().extendLength(-track.threshold);
